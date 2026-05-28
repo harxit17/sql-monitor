@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SQL/MONITOR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --bg1:       #161b22;
+    --bg2:       #1c2128;
+    --bg3:       #22272e;
+    --border:    #21262d;
+    --border2:   #30363d;
+    --text:      #e6edf3;
+    --text2:     #8b949e;
+    --text3:     #484f58;
+    --accent:    #58a6ff;
+    --accent2:   #79c0ff;
+    --green:     #3fb950;
+    --amber:     #d29922;
+    --red:       #f85149;
+    --red-dim:   #3d1c1c;
+    --green-dim: #0d2e1a;
+    --amber-dim: #2d1f00;
+    --blue:      #58a6ff;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; }
+  body { min-height: 100vh; }
+  ::selection { background: var(--accent); color: #000; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg1); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 20px; height: 44px;
+    background: var(--bg1); border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+  }
+  #topbar .logo {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.15em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  #topbar .logo span { color: var(--text3); }
+  .tb-sep { width: 1px; height: 20px; background: var(--border); }
+  .ts-label { font-size: 11px; color: var(--text3); }
+  .ts-val   { font-size: 11px; color: var(--text2); margin-left: 4px; }
+  #topbar .spacer { flex: 1; }
+  .btn {
+    font-family: var(--mono); font-size: 11px; color: var(--text2);
+    background: transparent; border: 1px solid var(--border2);
+    padding: 4px 10px; border-radius: 3px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ── LAYOUT ── */
+  #app { display: flex; height: calc(100vh - 44px); overflow: hidden; }
+
+  /* ── LEFT SIDEBAR ── */
+  #sidebar {
+    width: 220px; min-width: 220px;
+    background: var(--bg1); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 12px 14px 8px;
+    font-size: 10px; letter-spacing: 0.12em; color: var(--text3);
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header span { float: right; color: var(--text3); }
+  #server-list { overflow-y: auto; flex: 1; }
+  .srv-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .srv-item:hover  { background: var(--bg2); }
+  .srv-item.active { background: var(--bg3); border-left: 2px solid var(--accent); }
+  .srv-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok    { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-warn  { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot-error { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+  .dot-off   { background: var(--text3); }
+  .srv-name  { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srv-cpu-mini { font-size: 10px; color: var(--text3); }
+
+  .sidebar-footer {
+    padding: 8px 14px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--text3);
+  }
+
+  /* ── MAIN CONTENT ── */
+  #main { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* ── FLEET VIEW ── */
+  #fleet-view {}
+  .fleet-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .fleet-title  { font-family: var(--sans); font-size: 14px; font-weight: 500; color: var(--text); }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 2px; font-weight: 500; }
+  .badge-ok    { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .badge-warn  { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber); }
+  .badge-error { background: var(--red-dim);   color: var(--red);   border: 1px solid var(--red); }
+  .badge-off   { background: var(--bg3);        color: var(--text3); border: 1px solid var(--border2); }
+
+  #fleet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 10px;
+  }
+
+  .fleet-card {
+    background: var(--bg1); border: 1px solid var(--border);
+    border-radius: 4px; padding: 14px;
+    cursor: pointer; transition: border-color 0.15s, background 0.1s;
+    position: relative; overflow: hidden;
+  }
+  .fleet-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .fleet-card.health-ok::before    { background: var(--green); }
+  .fleet-card.health-warn::before  { background: var(--amber); }
+  .fleet-card.health-error::before { background: var(--red); }
+  .fleet-card.health-offline::before { background: var(--text3); }
+  .fleet-card:hover { border-color: var(--border2); background: var(--bg2); }
+
+  .fc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .fc-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; }
+  .fc-ver  { font-size: 10px; color: var(--text3); margin-bottom: 8px; }
+
+  .fc-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fc-metric { }
+  .fc-metric-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+  .fc-metric-val   { font-size: 13px; font-weight: 500; }
+  .val-ok    { color: var(--green); }
+  .val-warn  { color: var(--amber); }
+  .val-error { color: var(--red); }
+  .val-dim   { color: var(--text2); }
+  .val-off   { color: var(--text3); }
+
+  .mini-bar { height: 3px; background: var(--bg3); border-radius: 1px; margin-top: 3px; }
+  .mini-fill { height: 100%; border-radius: 1px; transition: width 0.4s; }
+  .fill-ok    { background: var(--green); }
+  .fill-warn  { background: var(--amber); }
+  .fill-error { background: var(--red); }
+  .fill-blue  { background: var(--blue); }
+
+  .fc-dbrow { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .fc-db-pill {
+    font-size: 10px; padding: 2px 6px; border-radius: 2px;
+    background: var(--green-dim); color: var(--green);
+  }
+  .fc-db-pill.warn { background: var(--amber-dim); color: var(--amber); }
+  .fc-db-pill.err  { background: var(--red-dim);   color: var(--red); }
+
+  /* ── DETAIL VIEW ── */
+  #detail-view { display: none; }
+  .detail-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .back-btn { font-size: 11px; color: var(--accent); background: none; border: none; cursor: pointer; font-family: var(--mono); padding: 0; }
+  .back-btn:hover { text-decoration: underline; }
+  .detail-server-name { font-family: var(--sans); font-size: 16px; font-weight: 500; color: var(--text); }
+
+  /* ── SECTION CARDS ── */
+  .section { background: var(--bg1); border: 1px solid var(--border); border-radius: 4px; padding: 14px; }
+  .section-title {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text); margin-bottom: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .kv-row  { display: flex; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid var(--border); }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-k { font-size: 11px; color: var(--text3); }
+  .kv-v { font-size: 11px; color: var(--text); text-align: right; max-width: 55%; word-break: break-word; }
+  .kv-v.mono { font-family: var(--mono); }
+
+  /* ── GAUGE ── */
+  .gauge-row { margin-bottom: 10px; }
+  .gauge-row:last-child { margin-bottom: 0; }
+  .gauge-head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .gauge-lbl  { font-size: 11px; color: var(--text3); }
+  .gauge-val  { font-size: 11px; font-weight: 500; }
+  .gauge-track { height: 5px; background: var(--bg3); border-radius: 2px; }
+  .gauge-fill  { height: 100%; border-radius: 2px; transition: width 0.5s; }
+
+  /* ── DB TABLE ── */
+  .db-table { width: 100%; border-collapse: collapse; }
+  .db-table th {
+    font-size: 10px; text-align: left; color: var(--text3); font-weight: 500;
+    padding: 5px 8px; border-bottom: 1px solid var(--border);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .db-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text2); }
+  .db-table tr:last-child td { border-bottom: none; }
+  .db-table tr:hover td { background: var(--bg2); color: var(--text); }
+  .db-name-cell { font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+  /* ── DRIVE ROWS ── */
+  .drive-row { display: grid; grid-template-columns: 36px 1fr 80px 60px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .drive-row:last-child { border-bottom: none; }
+  .drive-letter { font-size: 12px; font-weight: 600; color: var(--accent2); }
+  .drive-info .drive-role { font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+  .drive-sizes { font-size: 10px; color: var(--text2); }
+  .drive-pct-val { font-size: 12px; font-weight: 500; text-align: right; }
+
+  /* ── SERVICE ROWS ── */
+  .svc-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .svc-row:last-child { border-bottom: none; }
+  .svc-name   { flex: 1; font-size: 11px; color: var(--text); }
+  .svc-detail { font-size: 10px; color: var(--text3); }
+  .svc-pill { font-size: 10px; padding: 2px 7px; border-radius: 2px; }
+  .svc-run  { background: var(--green-dim); color: var(--green); }
+  .svc-stop { background: var(--red-dim);   color: var(--red); }
+  .svc-unk  { background: var(--amber-dim); color: var(--amber); }
+
+  /* ── WAIT TABLE ── */
+  .wait-table { width: 100%; border-collapse: collapse; }
+  .wait-table th { font-size: 10px; color: var(--text3); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+  .wait-table td { font-size: 11px; color: var(--text2); padding: 5px 6px; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+  .wait-table tr:last-child td { border-bottom: none; }
+  .wait-table tr:hover td { background: var(--bg2); }
+
+  /* ── RESPONSIVE GRID HELPERS ── */
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+
+  /* ── LOADING / ERROR STATES ── */
+  .loading { color: var(--text3); font-size: 12px; padding: 20px; text-align: center; }
+  .loading::before { content: '> '; color: var(--accent); }
+  .error-msg { color: var(--red); font-size: 12px; padding: 12px; background: var(--red-dim); border: 1px solid var(--red); border-radius: 3px; }
+
+  /* ── PULSE ANIMATION for dot ── */
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .dot-ok.live { animation: pulse 2s infinite; }
+
+  /* ── GROUP / SUBGROUP ── */
+  .group-block { margin-bottom: 20px; }
+  .group-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; margin-bottom: 8px;
+    border-bottom: 1px solid var(--border2); cursor: pointer; user-select: none;
+  }
+  .group-header:hover { border-color: var(--accent); }
+  .group-title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: var(--sans);
+  }
+  .group-toggle { font-size: 10px; color: var(--text3); transition: transform 0.2s; }
+  .group-toggle.collapsed { transform: rotate(-90deg); }
+  .group-count { font-size: 10px; color: var(--text3); }
+  .group-health { font-size: 10px; font-weight: 500; }
+  .subgroup-block { margin-bottom: 14px; }
+  .subgroup-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0 6px 12px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--border); cursor: pointer; user-select: none;
+  }
+  .subgroup-title {
+    font-size: 11px; font-weight: 500; color: var(--text2);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    font-family: var(--sans);
+  }
+  .subgroup-count { font-size: 10px; color: var(--text3); }
+  .subgroup-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-left: 12px;
+  }
+  .subgroup-grid .fleet-card {
+    flex: 0 0 320px;
+  }
+  .subgroup-grid.collapsed { display: none; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .subgroup-grid { grid-template-columns: 1fr; padding-left: 0; }
+    #sidebar { width: 180px; min-width: 180px; }
+    .kv-grid { grid-template-columns: 1fr; }
+  }
+ 
+ /* ── INVENTORY TABLE ───────────────────────────────── */
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-table th {
+  font-size: 13px;
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--white);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.inventory-table td {
+  font-size: 11px;
+  color: var(--text2);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.inventory-table tr:hover td {
+  background: var(--bg2);
+  color: var(--text);
+  vertical-align: top;
+}
+
+.inventory-yes {
+  color: var(--green);
+  font-weight: 500;
+}
+
+.inventory-no {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.inventory-db-center {
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-line;
+  line-height: 1.6;
+}
+.inventory-db-left {
+  text-align: left;
+  vertical-align: top;
+  white-space: pre-line;
+  line-height: 1.6;
+}
+.inventory-anchor td {
+  padding: 8px;
+  background: var(--bg3);
+  color: var(--accent2);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+}
+
+.inventory-quick-links {
+  display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.inv-tab.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── DRIVE SPACE ── */
+.ds-server-block { margin-bottom: 24px; }
+.ds-server-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  color: var(--accent2); text-transform: uppercase;
+  padding: 6px 0; margin-bottom: 10px;
+  border-bottom: 1px solid var(--border2);
+}
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.ds-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 14px;
+  position: relative; overflow: hidden;
+}
+.ds-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+.ds-card.ok::before    { background: var(--green); }
+.ds-card.warn::before  { background: var(--amber); }
+.ds-card.error::before { background: var(--red); }
+.ds-drive-letter {
+  font-size: 18px; font-weight: 700; color: var(--accent2);
+  font-family: var(--mono); margin-bottom: 2px;
+}
+.ds-drive-label { font-size: 10px; color: var(--text3); margin-bottom: 10px; }
+.ds-bar-track {
+  height: 6px; background: var(--bg3); border-radius: 3px; margin-bottom: 8px;
+}
+.ds-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+.ds-bar-fill.ok    { background: var(--green); }
+.ds-bar-fill.warn  { background: var(--amber); }
+.ds-bar-fill.error { background: var(--red); }
+.ds-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
+}
+.ds-stat-label { font-size: 10px; color: var(--text3); margin-bottom: 2px; }
+.ds-stat-val   { font-size: 12px; font-weight: 500; color: var(--text); }
+.ds-pct-val {
+  font-size: 22px; font-weight: 700; text-align: right;
+}
+.ds-pct-val.ok    { color: var(--green); }
+.ds-pct-val.warn  { color: var(--amber); }
+.ds-pct-val.error { color: var(--red); }
+.ds-server-tab.active, .ds-group-tab.active {
+  background: var(--accent); color: #000;
+  border-color: var(--accent); font-weight: 600;
+}
+
+
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">SQL<span>/</span>MONITOR</div>
+  <div class="tb-sep"></div>
+  <span class="ts-label">REFRESHED</span>
+  <span class="ts-val" id="ts-val">—</span>
+  <div class="spacer"></div>
+  <span id="health-summary"></span>
+  <div class="tb-sep"></div>
+  <button class="btn" id="btn-fleet" onclick="showFleet()">FLEET</button>
+  <button class="btn" id="btn-refresh" onclick="refreshFleet()">↻ REFRESH</button>
+  <button class="btn" id="btn-inventory" onclick="showInventory()">INVENTORY</button>
+  <button class="btn" id="btn-drivespace" onclick="showDriveSpace()">DRIVE SPACE</button>
+</div>
+
+<!-- APP BODY -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-header">Instances <span id="srv-count">0</span></div>
+    <div id="server-list"></div>
+    <div class="sidebar-footer" id="auto-refresh-label">Auto-refresh: 30s</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+  
+		<!-- INVENTORY SECTION -->
+			<div class="section" id="inventory-section" style="display:none">
+			<div class="section-title">Inventory</div>
+			<div class="inventory-quick-links">
+			<button class="btn inv-tab active" id="inv-tab-sap-nonprod"    onclick="jumpToSection('sap-nonprod')">SAP–NonProd</button>
+			<button class="btn inv-tab"         id="inv-tab-sap-prod"       onclick="jumpToSection('sap-prod')">SAP–Prod</button>
+			<button class="btn inv-tab"         id="inv-tab-nonsap-nonprod" onclick="jumpToSection('nonsap-nonprod')">NonSAP–NonProd</button>
+			<button class="btn inv-tab"         id="inv-tab-nonsap-prod"    onclick="jumpToSection('nonsap-prod')">NonSAP–Prod</button>
+			</div>
+
+			<div style="overflow-x:auto">
+			<table class="inventory-table">
+			<thead>
+			<tr>
+			<th>SQL Instance Name</th>
+			<th>Databases</th>
+			<th>AOAG Enabled</th>
+			<th>Primary Node</th>
+			<th>Secondary Node</th>
+			<th>Application Support Team</th>
+			<th>Business Owner</th>
+			<th>App Server Details</th>
+			</tr>
+			</thead>
+		<tbody id="inventory-body">
+      <tr>
+        <td colspan="8" class="loading">Loading inventory…</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+			</div>
+
+    <!-- DRIVE SPACE VIEW -->
+    <div class="section" id="drivespace-section" style="display:none">
+      <div class="section-title">Drive Space
+        <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none" id="ds-collected"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div id="ds-group-tabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div style="flex:1"></div>
+        <button class="btn" onclick="loadDriveSpace()">↻ Refresh</button>
+      </div>
+      <div id="drivespace-content"><div class="loading">Loading drive space…</div></div>
+    </div>
+
+    <!-- FLEET VIEW -->
+    <div id="fleet-view">
+      <div class="fleet-header">
+        <span class="fleet-title">Fleet Overview</span>
+        <span id="fleet-badge-ok" class="badge badge-ok" style="display:none"></span>
+        <span id="fleet-badge-warn" class="badge badge-warn" style="display:none"></span>
+        <span id="fleet-badge-error" class="badge badge-error" style="display:none"></span>
+        <span id="fleet-badge-off" class="badge badge-off" style="display:none"></span>
+      </div>
+      <div id="fleet-grid"><div class="loading">Connecting to servers…</div></div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div id="detail-view">
+      <div class="detail-topbar">
+        <button class="back-btn" onclick="showFleet()">← fleet</button>
+        <span style="color:var(--text3)">/</span>
+        <span class="detail-server-name" id="detail-server-name">—</span>
+        <span id="detail-health-badge"></span>
+        <div style="flex:1"></div>
+        <button class="btn" id="detail-refresh-btn">↻ Refresh</button>
+      </div>
+      <div id="detail-content"><div class="loading">Loading server details…</div></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const API_BASE = '/api';
+let AUTO_REFRESH_SEC = 30;
+let fleetTimer = null;
+let currentDetailId = null;
+
+// ── HELPERS ─────────────────────────────────────────────────────────────────
+function fmtGB(gb) {
+  if (gb == null) return '—';
+  if (gb < 1) return (gb * 1024).toFixed(0) + ' MB';
+  return gb >= 100 ? gb.toFixed(0) + ' GB' : gb.toFixed(1) + ' GB';
+}
+function fmtMB(mb) {
+  if (mb == null) return '—';
+  if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+  return parseFloat(mb).toFixed(0) + ' MB';
+}
+function pctClass(p) {
+  if (p >= 90) return 'val-error';
+  if (p >= 75) return 'val-warn';
+  return 'val-ok';
+}
+function pctFill(p) {
+  if (p >= 90) return 'fill-error';
+  if (p >= 75) return 'fill-warn';
+  return 'fill-ok';
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-NZ', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+function dbStatusBadge(s) {
+  if (s === 'ONLINE')    return `<span class="svc-pill svc-run">${s}</span>`;
+  if (s === 'OFFLINE' || s === 'SUSPECT' || s === 'EMERGENCY') return `<span class="svc-pill svc-stop">${s}</span>`;
+  return `<span class="svc-pill svc-unk">${s}</span>`;
+}
+function svcPill(s) {
+  if (s === 'Running') return `<span class="svc-pill svc-run">RUNNING</span>`;
+  if (s === 'Stopped') return `<span class="svc-pill svc-stop">STOPPED</span>`;
+  return `<span class="svc-pill svc-unk">${s?.toUpperCase()}</span>`;
+}
+
+// ── GAUGE HELPER ─────────────────────────────────────────────────────────────
+function gauge(label, usedMb, totalMb) {
+  const pct = totalMb > 0 ? Math.min(100, Math.round(usedMb / totalMb * 100)) : 0;
+  const vc = pctClass(pct); const fc = pctFill(pct);
+  return `<div class="gauge-row">
+    <div class="gauge-head">
+      <span class="gauge-lbl">${label}</span>
+      <span class="gauge-val ${vc}">${pct}% <span style="font-weight:300;color:var(--text3)">${fmtMB(usedMb)} / ${fmtMB(totalMb)}</span></span>
+    </div>
+    <div class="gauge-track"><div class="gauge-fill ${fc}" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+// ── FLEET ────────────────────────────────────────────────────────────────────
+async function refreshFleet() {
+  clearTimeout(fleetTimer);
+  document.getElementById('ts-val').textContent = 'loading…';
+  try {
+    const data = await fetch(`${API_BASE}/fleet`).then(r => r.json());
+    renderFleet(data);
+    renderSidebar(data);
+    document.getElementById('ts-val').textContent = new Date().toLocaleTimeString('en-NZ');
+    updateHealthSummary(data);
+  } catch(e) {
+    document.getElementById('fleet-grid').innerHTML =
+      `<div class="error-msg">Cannot reach API at ${API_BASE}<br/><small>${e.message}</small></div>`;
+  }
+  fleetTimer = setTimeout(refreshFleet, AUTO_REFRESH_SEC * 1000);
+}
+
+function updateHealthSummary(data) {
+  const ok    = data.filter(s => s.status === 'online' && s.health === 'ok').length;
+  const warn  = data.filter(s => s.status === 'online' && s.health === 'warn').length;
+  const error = data.filter(s => s.health === 'error').length;
+  const off   = data.filter(s => s.status === 'offline').length;
+
+  const badge = id => document.getElementById(id);
+  badge('fleet-badge-ok').textContent   = `${ok} OK`;
+  badge('fleet-badge-warn').textContent = `${warn} WARN`;
+  badge('fleet-badge-error').textContent= `${error} ERR`;
+  badge('fleet-badge-off').textContent  = `${off} OFFLINE`;
+  badge('fleet-badge-ok').style.display   = ok    ? '' : 'none';
+  badge('fleet-badge-warn').style.display = warn  ? '' : 'none';
+  badge('fleet-badge-error').style.display= error ? '' : 'none';
+  badge('fleet-badge-off').style.display  = off   ? '' : 'none';
+
+  const overall = error > 0 || off > 0 ? 'ERR' : warn > 0 ? 'WARN' : 'OK';
+  const col = error > 0 || off > 0 ? 'var(--red)' : warn > 0 ? 'var(--amber)' : 'var(--green)';
+  document.getElementById('health-summary').innerHTML =
+    `<span style="font-size:11px;color:${col}">● ${overall}</span>`;
+}
+
+function fleetCard(s) {
+  const hc = s.status === 'offline' ? 'offline' : s.health;
+  const dotClass = hc === 'ok' ? 'dot-ok live' : hc === 'warn' ? 'dot-warn' : hc === 'error' ? 'dot-error' : 'dot-off';
+  if (s.status === 'offline') {
+    return `<div class="fleet-card health-offline" onclick="showDetail('${s.id}')">
+      <div class="fc-top"><div class="srv-dot ${dotClass}"></div>
+      <div class="fc-name">${s.label}</div><span class="badge badge-off">OFFLINE</span></div>
+      <div class="fc-ver" style="color:var(--text3)">${s.server}</div>
+      <div style="font-size:11px;color:var(--red);margin-top:8px">${s.error || 'Connection failed'}</div>
+    </div>`;
+  }
+  const cpuPct = s.cpu_pct ?? 0;
+  const memPct = s.mem_pct ?? 0;
+  const critDrive = s.crit_drive;
+  const drivePct  = critDrive?.used_pct ?? 0;
+  const edition   = s.edition ? s.edition.split(' ')[0] : '—';
+  const dbOnline  = s.db_online  ?? 0;
+  const dbOffline = s.db_offline ?? 0;
+  return `<div class="fleet-card health-${hc}" onclick="showDetail('${s.id}')">
+    <div class="fc-top">
+      <div class="srv-dot ${dotClass}"></div>
+      <div class="fc-name">${s.label}</div>
+      <span class="badge badge-${hc === 'ok' ? 'ok' : hc === 'warn' ? 'warn' : 'error'}">${hc.toUpperCase()}</span>
+    </div>
+    <div class="fc-ver">${s.version ?? '—'} &nbsp;·&nbsp; ${edition}</div>
+    <div class="fc-metrics">
+      <div class="fc-metric"><div class="fc-metric-label">CPU</div>
+        <div class="fc-metric-val ${pctClass(cpuPct)}">${cpuPct}%</div>
+        <div class="mini-bar"><div class="mini-fill ${pctFill(cpuPct)}" style="width:${cpuPct}%"></div></div>
+      </div>
+      <div class="fc-metric"><div class="fc-metric-label">MEMORY</div>
+        <div class="fc-metric-val ${pctClass(memPct)}">${memPct}%</div>
+        <div class="mini-bar"><div class="mini-fill ${pctFill(memPct)}" style="width:${memPct}%"></div></div>
+      </div>
+      <div class="fc-metric"><div class="fc-metric-label">SESSIONS</div>
+        <div class="fc-metric-val val-dim">${s.sessions ?? '—'}</div>
+      </div>
+      <div class="fc-metric">
+        <div class="fc-metric-label">${critDrive ? critDrive.volume_mount_point + ' DRIVE' : 'DRIVE'}</div>
+        <div class="fc-metric-val ${pctClass(drivePct)}">${drivePct}%</div>
+        <div class="mini-bar"><div class="mini-fill ${pctFill(drivePct)}" style="width:${drivePct}%"></div></div>
+      </div>
+    </div>
+    <div class="fc-dbrow">
+      <span class="fc-db-pill">${dbOnline} ONLINE</span>
+      ${dbOffline > 0 ? `<span class="fc-db-pill err">${dbOffline} OFFLINE</span>` : ''}
+      ${s.hadr_enabled ? `<span class="fc-db-pill" style="background:#0c3a5a;color:#38bdf8;border:1px solid #38bdf8">AOAG</span>` : ''}
+      <span class="fc-db-pill" style="background:var(--bg3);color:var(--text3)">${s.logical_cpus ?? '?'} CPU · ${fmtMB(s.mem_total_mb)} RAM</span>
+    </div>
+  </div>`;
+}
+
+function groupHealth(servers) {
+  if (servers.some(s => s.health === 'error' || s.status === 'offline')) return { cls:'error', label:'ERR' };
+  if (servers.some(s => s.health === 'warn')) return { cls:'warn', label:'WARN' };
+  return { cls:'ok', label:'OK' };
+}
+
+function toggleGroup(id) {
+  const el = document.getElementById('grp-' + id);
+  const tog = document.getElementById('tog-' + id);
+  if (!el) return;
+  el.classList.toggle('collapsed');
+  tog.classList.toggle('collapsed');
+}
+
+function renderFleet(data) {
+  document.getElementById('srv-count').textContent = data.length;
+  const grid = document.getElementById('fleet-grid');
+  if (!data.length) { grid.innerHTML = '<div class="loading">No servers configured in .env</div>'; return; }
+
+  // Group order definition
+  const GROUP_ORDER    = ['Non-SAP', 'SAP', 'Ungrouped'];
+  const SUBGROUP_ORDER = ['Prod', 'Non-Prod', 'Ungrouped'];
+
+  // Build nested structure: { group -> { subgroup -> [servers] } }
+  const tree = {};
+  data.forEach(s => {
+    const g  = s.group    || 'Ungrouped';
+    const sg = s.subgroup || 'Ungrouped';
+    if (!tree[g])     tree[g]     = {};
+    if (!tree[g][sg]) tree[g][sg] = [];
+    tree[g][sg].push(s);
+  });
+
+  // Sort groups and subgroups
+  const sortedGroups = Object.keys(tree).sort((a,b) =>
+    (GROUP_ORDER.indexOf(a) === -1 ? 99 : GROUP_ORDER.indexOf(a)) -
+    (GROUP_ORDER.indexOf(b) === -1 ? 99 : GROUP_ORDER.indexOf(b))
+  );
+
+  let html = '';
+  sortedGroups.forEach(group => {
+    const subgroups   = tree[group];
+    const allServers  = Object.values(subgroups).flat();
+    const gh          = groupHealth(allServers);
+    const healthCol   = gh.cls === 'ok' ? 'var(--green)' : gh.cls === 'warn' ? 'var(--amber)' : 'var(--red)';
+    const groupId     = group.replace(/\s+/g, '-');
+
+    const sortedSubs = Object.keys(subgroups).sort((a,b) =>
+      (SUBGROUP_ORDER.indexOf(a) === -1 ? 99 : SUBGROUP_ORDER.indexOf(a)) -
+      (SUBGROUP_ORDER.indexOf(b) === -1 ? 99 : SUBGROUP_ORDER.indexOf(b))
+    );
+
+    html += `<div class="group-block">
+      <div class="group-header" onclick="toggleGroup('${groupId}')">
+        <span class="group-toggle" id="tog-${groupId}">▼</span>
+        <span class="group-title">${group}</span>
+        <span class="group-health" style="color:${healthCol}">● ${gh.label}</span>
+        <span class="group-count">${allServers.length} server${allServers.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div id="grp-${groupId}">`;
+
+    sortedSubs.forEach(sub => {
+      const servers  = subgroups[sub];
+      const sh       = groupHealth(servers);
+      const subCol   = sh.cls === 'ok' ? 'var(--green)' : sh.cls === 'warn' ? 'var(--amber)' : 'var(--red)';
+      const subId    = groupId + '-' + sub.replace(/\s+/g, '-');
+
+      html += `<div class="subgroup-block">
+        <div class="subgroup-header" onclick="toggleGroup('${subId}')">
+          <span class="group-toggle" id="tog-${subId}" style="font-size:9px">▼</span>
+          <span class="subgroup-title">${sub}</span>
+          <span style="font-size:10px;color:${subCol}">● ${sh.label}</span>
+          <span class="subgroup-count">${servers.length} server${servers.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="subgroup-grid" id="grp-${subId}">
+          ${servers.map(s => fleetCard(s)).join('')}
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderSidebar(data) {
+  const list = document.getElementById('server-list');
+  // Group by group+subgroup for sidebar
+  const tree = {};
+  data.forEach(s => {
+    const g  = s.group    || 'Ungrouped';
+    const sg = s.subgroup || 'Ungrouped';
+    if (!tree[g])     tree[g]     = {};
+    if (!tree[g][sg]) tree[g][sg] = [];
+    tree[g][sg].push(s);
+  });
+
+  let html = '';
+  Object.keys(tree).sort().forEach(group => {
+    html += `<div style="padding:6px 14px 2px;font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;border-bottom:1px solid var(--border)">${group}</div>`;
+    Object.keys(tree[group]).sort().forEach(sub => {
+      html += `<div style="padding:4px 14px 2px 20px;font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase">${sub}</div>`;
+      tree[group][sub].forEach(s => {
+        const hc = s.status === 'offline' ? 'dot-off' : s.health === 'ok' ? 'dot-ok' : s.health === 'warn' ? 'dot-warn' : 'dot-error';
+        const active = currentDetailId === s.id ? ' active' : '';
+        html += `<div class="srv-item${active}" onclick="showDetail('${s.id}')" style="padding-left:28px">
+          <div class="srv-dot ${hc}"></div>
+          <span class="srv-name">${s.label}</span>
+          <span class="srv-cpu-mini">${s.cpu_pct != null ? s.cpu_pct + '%' : ''}</span>
+        </div>`;
+      });
+    });
+  });
+  list.innerHTML = html;
+}
+// ── Function help─────────────────────────────────────────────
+
+function toLines(val) {
+  if (!val) return '';
+  if (Array.isArray(val)) return val.join('<br>');
+  return String(val).replace(/,\s*/g, '<br>');
+}
+
+
+const INVENTORY_SECTIONS = [
+  { id: 'sap-nonprod', label: 'SAP–NonProd' },
+  { id: 'sap-prod', label: 'SAP–Prod' },
+  { id: 'nonsap-nonprod', label: 'NonSAP–NonProd' },
+  { id: 'nonsap-prod', label: 'NonSAP–Prod' }
+];
+
+// ── INVENTORY ─────────────────────────────────────────────
+let inventoryData = [];
+let activeInvSection = 'sap-nonprod';
+
+async function loadInventory() {
+  const body = document.getElementById('inventory-body');
+  try {
+    inventoryData = await fetch('/inventory.json').then(r => r.json());
+    renderInventorySection(activeInvSection);
+  } catch (e) {
+    body.innerHTML =
+      `<tr><td colspan="8" class="error-msg">Failed to load inventory</td></tr>`;
+  }
+}
+
+function jumpToSection(sectionId) {
+  activeInvSection = sectionId;
+
+  // Update tab active states
+  document.querySelectorAll('.inv-tab').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById('inv-tab-' + sectionId);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  renderInventorySection(sectionId);
+}
+
+function renderInventorySection(sectionId) {
+  const body = document.getElementById('inventory-body');
+  const section = INVENTORY_SECTIONS.find(s => s.id === sectionId);
+  const rows = inventoryData.filter(r => r.section === sectionId);
+
+  body.innerHTML = '';
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No entries found for ${section ? section.label : sectionId}</td></tr>`;
+    return;
+  }
+
+  rows.forEach(i => {
+    body.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="db-name-cell">${i.sql_instance}</td>
+        <td class="inventory-db-left">${toLines(i.databases)}</td>
+        <td class="${i.aoag_enabled === 'Yes' ? 'inventory-yes' : 'inventory-no'}">${i.aoag_enabled || '—'}</td>
+        <td>${i.primary_node || '—'}</td>
+        <td>${i.secondary_node || '—'}</td>
+        <td class="inventory-db-left">${toLines(i.app_support_team)}</td>
+        <td class="inventory-db-left">${toLines(i.business_owner)}</td>
+        <td class="inventory-db-left">${toLines(i.app_server_details)}</td>
+      </tr>
+    `);
+  });
+}
+
+// ── DETAIL VIEW ──────────────────────────────────────────────────────────────
+async function showDetail(id) {
+  currentDetailId = id;
+  hideAllMainViews();
+  document.getElementById('fleet-view').style.display  = 'none';
+  document.getElementById('detail-view').style.display = 'block';
+  document.getElementById('detail-server-name').textContent = id;
+  document.getElementById('detail-content').innerHTML = '<div class="loading">Querying server…</div>';
+  document.getElementById('btn-fleet').classList.remove('active');
+
+  document.getElementById('detail-refresh-btn').onclick = () => loadDetail(id);
+  await loadDetail(id);
+
+  // Update sidebar active state
+  document.querySelectorAll('.srv-item').forEach(el => el.classList.remove('active'));
+  const items = document.querySelectorAll('.srv-item');
+  // re-render sidebar to update active
+}
+
+async function loadDetail(id) {
+  try {
+    const s = await fetch(`${API_BASE}/server/${id}`).then(r => r.json());
+    document.getElementById('detail-server-name').textContent = s.label;
+
+    const hc = s.status === 'offline' ? 'offline' :
+      (s.databases?.some(d => d.status === 'SUSPECT') ? 'error' :
+      (s.databases?.some(d => d.status !== 'ONLINE') ? 'warn' : 'ok'));
+
+    document.getElementById('detail-health-badge').innerHTML =
+      `<span class="badge badge-${hc === 'ok' ? 'ok' : hc === 'warn' ? 'warn' : 'error'}">${hc.toUpperCase()}</span>`;
+
+    if (s.status === 'offline') {
+      document.getElementById('detail-content').innerHTML =
+        `<div class="error-msg">Server offline: ${s.error}</div>`;
+      return;
+    }
+
+    const inst = s.instance || {}; const os = s.os || {};
+    const cpu  = s.cpu || {};     const mem = s.memory || {};
+    const memProc = mem.process || {};
+    const memTotalMb = parseFloat(os.physical_memory_mb) || 1;
+    const memUsedMb  = parseFloat(memProc.sql_memory_used_mb) || 0;
+    const rawMaxMem  = parseFloat(mem.max_server_mem_mb);
+    const maxMemMb   = (rawMaxMem > 0 && rawMaxMem < 2147483647) ? rawMaxMem : memTotalMb;
+
+    const avgCpu = cpu.avg_pct ?? 0;
+
+    // ── Build detail HTML ────────────────────────────────────────────────────
+    let html = '';
+
+    // Row 1: Instance + OS side by side
+    html += `<div class="grid-2" style="margin-bottom:12px">`;
+
+    // Instance details
+    html += `<div class="section"><div class="section-title">Instance</div><div class="kv-grid">
+      <div>
+        ${kv('Server',   inst.instance_name || s.label)}
+        ${kv('Version',  inst.version)}
+        ${kv('Patch',    inst.product_level + ' ' + (inst.update_level || ''))}
+        ${kv('Edition',  inst.edition)}
+        ${kv('Collation',inst.collation)}
+      </div><div>
+        ${kv('Engine',    engineEdition(inst.engine_edition))}
+        ${kv('Clustered', inst.is_clustered ? 'YES' : 'NO')}
+        ${kv('HA/DR',     inst.is_hadr_enabled ? 'ENABLED' : 'DISABLED')}
+        ${kv('SQL Start', fmtDate(os.sql_start_time))}
+        ${kv('OS',        windowsRelease(os))}
+      </div>
+    </div></div>`;
+
+    // CPU + Memory
+    html += `<div class="section"><div class="section-title">Resources</div>
+      ${gauge('CPU Utilization', avgCpu, 100)}
+      ${gauge('Memory (SQL used)', memUsedMb, memTotalMb)}
+      ${gauge('Max Server Memory', maxMemMb, memTotalMb)}
+      <div class="kv-grid" style="margin-top:10px">
+        <div>
+          ${kv('Physical CPUs',  os.physical_cpu_count)}
+          ${kv('Logical CPUs',   os.logical_cpu_count)}
+        </div><div>
+          ${kv('Total RAM',     fmtMB(memTotalMb))}
+          ${kv('Max Srv Mem',   fmtMB(maxMemMb))}
+        </div>
+      </div>
+    </div>`;
+
+    html += '</div>'; // close grid-2
+
+    // ── Databases ─────────────────────────────────────────────────────────
+    html += `<div class="section" style="margin-bottom:12px">
+      <div class="section-title">Databases <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none">&nbsp;${s.databases?.length ?? 0} total</span></div>
+      <div style="overflow-x:auto">
+      <table class="db-table"><thead><tr>
+        <th>Name</th><th>Status</th><th>Recovery</th><th>Compat</th>
+        <th>Data</th><th>Log</th><th>Last Full Backup</th><th>Last Log Backup</th>
+      </tr></thead><tbody>`;
+    (s.databases || []).forEach(d => {
+      html += `<tr>
+        <td class="db-name-cell">${d.name}</td>
+        <td>${dbStatusBadge(d.status)}</td>
+        <td style="color:var(--text3)">${d.recovery_model}</td>
+        <td style="color:var(--text3)">${d.compatibility_level}</td>
+        <td>${fmtMB(d.data_size_mb)}</td>
+        <td>${fmtMB(d.log_size_mb)}</td>
+        <td style="color:${d.last_full ? 'var(--text2)' : 'var(--red)'}">${fmtDate(d.last_full)}</td>
+        <td style="color:${d.recovery_model === 'FULL' && !d.last_log ? 'var(--amber)' : 'var(--text2)'}">${fmtDate(d.last_log)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+
+    // ── Drive space ────────────────────────────────────────────────────────
+    html += `<div class="section" style="margin-bottom:12px">
+      <div class="section-title">Drive Space</div>`;
+    if (!s.drives || s.drives.length === 0) {
+      html += `<div style="font-size:11px;color:var(--text3);padding:8px 0">No drive data — monitor user may need VIEW SERVER STATE on volume stats.</div>`;
+    } else {
+      (s.drives || []).forEach(d => {
+        const pct = d.used_pct != null ? parseFloat(d.used_pct) : null;
+        const hasPct = pct != null;
+        html += `<div class="drive-row">
+          <div class="drive-letter">${d.volume_mount_point}</div>
+          <div class="drive-info">
+            <div class="drive-role">${d.logical_volume_name || d.file_system_type || ''}</div>
+            ${hasPct
+              ? `<div class="gauge-track"><div class="gauge-fill ${pctFill(pct)}" style="width:${pct}%"></div></div>`
+              : `<div style="font-size:10px;color:var(--text3)">free space only</div>`
+            }
+          </div>
+          <div class="drive-sizes">${fmtGB(parseFloat(d.free_gb))} free${d.total_gb ? ' / ' + fmtGB(parseFloat(d.total_gb)) : ''}</div>
+          <div class="drive-pct-val ${hasPct ? pctClass(pct) : 'val-dim'}">${hasPct ? pct + '%' : '—'}</div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+
+    // ── Services + Waits side-by-side ─────────────────────────────────────
+    html += `<div class="grid-2">`;
+
+    // Services — real status from sys.dm_server_services
+    html += `<div class="section"><div class="section-title">Services</div>`;
+    if (s.services && s.services.length > 0) {
+      s.services.forEach(svc => {
+        const startupCol = svc.startup_type_desc === 'Disabled' ? 'var(--red)' : 'var(--text3)';
+        html += `<div class="svc-row">
+          <div style="flex:1">
+            <div class="svc-name">${svc.servicename}</div>
+            <div class="svc-detail">
+              ${svc.service_account || ''}
+              &nbsp;·&nbsp; Startup: <span style="color:${startupCol}">${svc.startup_type_desc || '—'}</span>
+              ${svc.last_startup_time ? '&nbsp;·&nbsp; Started: ' + fmtDate(svc.last_startup_time) : ''}
+            </div>
+          </div>
+          ${svcPill(svc.status_desc)}
+        </div>`;
+      });
+    } else {
+      html += `<div class="svc-row">
+        <span class="svc-name">SQL Server (Database Engine)</span>
+        <span class="svc-detail">${inst.instance_name}</span>
+        ${svcPill('Running')}
+      </div>
+      <div class="svc-row">
+        <span class="svc-name">SQL Server Agent</span>
+        <span class="svc-detail">msdb</span>
+        ${svcPill(s.jobs?.length > 0 ? 'Running' : 'Stopped')}
+      </div>`;
+    }
+    html += `</div>`;
+
+    // Top waits
+    html += `<div class="section"><div class="section-title">Top Waits</div>
+      <table class="wait-table"><thead><tr>
+        <th>Wait Type</th><th>Tasks</th><th>Wait ms</th><th>Max ms</th>
+      </tr></thead><tbody>`;
+    (s.waits || []).slice(0, 8).forEach(w => {
+      html += `<tr>
+        <td>${w.wait_type}</td>
+        <td>${w.waiting_tasks_count?.toLocaleString()}</td>
+        <td>${w.wait_time_ms?.toLocaleString()}</td>
+        <td>${w.max_wait_time_ms?.toLocaleString()}</td>
+      </tr>`;
+    });
+    if (!(s.waits?.length)) html += `<tr><td colspan="4" style="color:var(--text3)">No significant waits</td></tr>`;
+    html += '</tbody></table></div>';
+
+    html += '</div>'; // close grid-2
+
+    // ── AOAG / HADR ───────────────────────────────────────────────────────
+    if (s.hadr && s.hadr.enabled && s.hadr.groups && s.hadr.groups.length > 0) {
+      s.hadr.groups.forEach(ag => {
+        const agReplicas  = (s.hadr.replicas  || []).filter(r => r.ag_name === ag.ag_name);
+        const agDatabases = (s.hadr.databases || []).filter(d => d.ag_name === ag.ag_name);
+        const agListeners = (s.hadr.listeners || []).filter(l => l.ag_name === ag.ag_name);
+
+        const healthCol = ag.ag_health === 'HEALTHY' ? 'var(--green)' :
+                          ag.ag_health === 'PARTIALLY_HEALTHY' ? 'var(--amber)' : 'var(--red)';
+
+        html += `<div class="section" style="margin-bottom:12px">
+          <div class="section-title">AOAG &mdash; ${ag.ag_name}
+            <span style="font-size:10px;letter-spacing:0;text-transform:none;color:${healthCol};margin-left:6px">● ${ag.ag_health || '—'}</span>
+          </div>
+
+          <div class="grid-2" style="margin-bottom:10px">
+            <div>
+              ${kv('Local Role',       ag.local_role)}
+              ${kv('Primary Replica',  ag.primary_replica)}
+              ${kv('AG State',         ag.ag_state)}
+              ${kv('Backup Preference',ag.backup_preference)}
+            </div>
+            <div>
+              ${agListeners.length > 0
+                ? agListeners.map(l =>
+                    kv('Listener', l.listener_dns + ':' + l.listener_port + ' (' + l.ip_address + ')')
+                  ).join('')
+                : kv('Listener', 'None configured')
+              }
+            </div>
+          </div>
+
+          <div style="font-size:10px;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Replicas</div>
+          <table class="db-table" style="margin-bottom:12px"><thead><tr>
+            <th>Replica</th><th>Role</th><th>Mode</th><th>Failover</th><th>Connected</th><th>Sync Health</th>
+          </tr></thead><tbody>`;
+
+        agReplicas.forEach(r => {
+          const roleCol  = r.role === 'PRIMARY' ? 'var(--accent)' : 'var(--text2)';
+          const syncCol  = r.sync_health === 'HEALTHY' ? 'var(--green)' :
+                           r.sync_health === 'PARTIALLY_HEALTHY' ? 'var(--amber)' : 'var(--red)';
+          const connCol  = r.connected_state === 'CONNECTED' ? 'var(--green)' : 'var(--red)';
+          html += `<tr>
+            <td class="db-name-cell">${r.replica_server_name}</td>
+            <td style="color:${roleCol};font-weight:500">${r.role}</td>
+            <td style="color:var(--text2)">${r.availability_mode}</td>
+            <td style="color:var(--text2)">${r.failover_mode}</td>
+            <td style="color:${connCol}">${r.connected_state}</td>
+            <td style="color:${syncCol}">${r.sync_health}</td>
+          </tr>`;
+          if (r.last_connect_error_description) {
+            html += `<tr><td colspan="6" style="color:var(--red);font-size:10px;padding:2px 8px">${r.last_connect_error_description}</td></tr>`;
+          }
+        });
+
+        html += `</tbody></table>
+
+          <div style="font-size:10px;letter-spacing:0.08em;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Database Replicas</div>
+          <table class="db-table"><thead><tr>
+            <th>Database</th><th>Replica</th><th>Sync State</th><th>Sync Health</th>
+            <th>Send Queue</th><th>Redo Queue</th><th>Lag (s)</th><th>Suspended</th>
+          </tr></thead><tbody>`;
+
+        agDatabases.forEach(d => {
+          const syncCol  = d.sync_health === 'HEALTHY' ? 'var(--green)' :
+                           d.sync_health === 'PARTIALLY_HEALTHY' ? 'var(--amber)' : 'var(--red)';
+          const lagCol   = (d.secondary_lag_seconds > 60) ? 'var(--red)' :
+                           (d.secondary_lag_seconds > 10) ? 'var(--amber)' : 'var(--text2)';
+          html += `<tr>
+            <td class="db-name-cell">${d.database_name}</td>
+            <td style="color:var(--text2)">${d.replica_server_name}</td>
+            <td style="color:var(--text2)">${d.sync_state}</td>
+            <td style="color:${syncCol}">${d.sync_health}</td>
+            <td style="color:var(--text2)">${d.log_send_queue_size != null ? (d.log_send_queue_size).toLocaleString() + ' KB' : '—'}</td>
+            <td style="color:var(--text2)">${d.redo_queue_size != null ? (d.redo_queue_size).toLocaleString() + ' KB' : '—'}</td>
+            <td style="color:${lagCol}">${d.secondary_lag_seconds != null ? d.secondary_lag_seconds : '—'}</td>
+            <td style="color:${d.is_suspended ? 'var(--red)' : 'var(--text3)'}">${d.is_suspended ? 'YES — ' + (d.suspend_reason_desc || '') : 'NO'}</td>
+          </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+      });
+    }
+
+    // ── SQL Error Log ─────────────────────────────────────────────────────
+    html += `<div class="section" style="margin-bottom:12px">
+      <div class="section-title">SQL Error Log
+        <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none">&nbsp;errors only · last 2 hours</span>
+      </div>`;
+    if (!s.errorLog || s.errorLog.length === 0) {
+      html += `<div style="font-size:11px;color:var(--green);padding:8px 0">✓ No errors in the last 2 hours.</div>`;
+    } else {
+      html += `<div style="overflow-x:auto"><table class="db-table"><thead><tr>
+        <th>Date/Time</th><th>Severity</th><th>Process</th><th>Message</th>
+      </tr></thead><tbody>`;
+      s.errorLog.forEach(e => {
+        const sevCol = e.severity === 'ERROR' ? 'var(--red)' : e.severity === 'WARNING' ? 'var(--amber)' : 'var(--text3)';
+        const sevBg  = e.severity === 'ERROR' ? 'var(--red-dim)' : e.severity === 'WARNING' ? 'var(--amber-dim)' : 'transparent';
+        html += `<tr>
+          <td style="white-space:nowrap;font-size:11px">${e.log_date}</td>
+          <td><span style="font-size:10px;padding:2px 6px;border-radius:2px;background:${sevBg};color:${sevCol}">${e.severity}</span></td>
+          <td style="color:var(--text3);font-size:11px;white-space:nowrap">${e.process_info}</td>
+          <td style="font-size:11px;color:var(--text2);max-width:500px;word-break:break-word">${e.log_text}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+    html += `</div>`;
+
+    // ── Long Running Queries ───────────────────────────────────────────────
+    html += `<div class="section" style="margin-bottom:12px">
+      <div class="section-title">Long Running Queries
+        <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none">&nbsp;elapsed > 5s</span>
+      </div>`;
+    if (!s.longQueries || s.longQueries.length === 0) {
+      html += `<div style="font-size:11px;color:var(--green);padding:8px 0">✓ No long running queries detected.</div>`;
+    } else {
+      html += `<div style="overflow-x:auto"><table class="db-table"><thead><tr>
+        <th>SPID</th><th>Status</th><th>Database</th><th>Login</th><th>Elapsed</th>
+        <th>CPU</th><th>Reads</th><th>Blocking</th><th>Wait</th><th>Query</th>
+      </tr></thead><tbody>`;
+      s.longQueries.forEach(q => {
+        const elapsedSec = Math.round(q.elapsed_ms / 1000);
+        const elapsedCol = elapsedSec > 300 ? 'var(--red)' : elapsedSec > 60 ? 'var(--amber)' : 'var(--text2)';
+        const blockCol   = q.blocking_session_id > 0 ? 'var(--red)' : 'var(--text3)';
+        const querySnip  = (q.query_text || '').replace(/\s+/g, ' ').trim().substring(0, 80);
+        html += `<tr>
+          <td style="font-family:var(--mono)">${q.session_id}</td>
+          <td><span style="font-size:10px;color:${q.status === 'running' ? 'var(--green)' : 'var(--amber)'}">${q.status}</span></td>
+          <td style="font-size:11px">${q.database_name || '—'}</td>
+          <td style="font-size:11px;color:var(--text2)">${q.login_name || '—'}</td>
+          <td style="color:${elapsedCol};font-weight:500">${elapsedSec}s</td>
+          <td style="font-size:11px;color:var(--text2)">${Math.round((q.cpu_time_ms||0)/1000)}s</td>
+          <td style="font-size:11px;color:var(--text2)">${(q.logical_reads||0).toLocaleString()}</td>
+          <td style="color:${blockCol};font-family:var(--mono)">${q.blocking_session_id > 0 ? q.blocking_session_id : '—'}</td>
+          <td style="font-size:10px;color:var(--text3)">${q.wait_type || '—'}</td>
+          <td style="font-size:10px;color:var(--text2);font-family:var(--mono);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(q.query_text||'').replace(/"/g,'')}">${querySnip}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+    html += `</div>`;
+
+    // ── Index Health ───────────────────────────────────────────────────────
+    html += `<div class="section" style="margin-bottom:12px">
+      <div class="section-title">Index Health
+        <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none">&nbsp;fragmentation > 5% · pages > 100</span>
+      </div>`;
+    if (!s.indexHealth || s.indexHealth.length === 0) {
+      html += `<div style="font-size:11px;color:var(--green);padding:8px 0">✓ No fragmented indexes detected.</div>`;
+    } else {
+      const needRebuild    = s.indexHealth.filter(i => i.recommended_action === 'REBUILD').length;
+      const needReorganize = s.indexHealth.filter(i => i.recommended_action === 'REORGANIZE').length;
+      html += `<div style="display:flex;gap:12px;margin-bottom:10px">
+        <span style="font-size:11px;background:var(--red-dim);color:var(--red);padding:3px 8px;border-radius:3px">${needRebuild} need REBUILD</span>
+        <span style="font-size:11px;background:var(--amber-dim);color:var(--amber);padding:3px 8px;border-radius:3px">${needReorganize} need REORGANIZE</span>
+      </div>
+      <div style="overflow-x:auto"><table class="db-table"><thead><tr>
+        <th>Table</th><th>Index</th><th>Type</th><th>Fragmentation</th><th>Pages</th><th>Action</th>
+      </tr></thead><tbody>`;
+      s.indexHealth.forEach(i => {
+        const fragPct = parseFloat(i.fragmentation_pct) || 0;
+        const fragCol = fragPct >= 30 ? 'var(--red)' : 'var(--amber)';
+        const actCol  = i.recommended_action === 'REBUILD' ? 'var(--red)' : i.recommended_action === 'REORGANIZE' ? 'var(--amber)' : 'var(--green)';
+        const actBg   = i.recommended_action === 'REBUILD' ? 'var(--red-dim)' : i.recommended_action === 'REORGANIZE' ? 'var(--amber-dim)' : 'var(--green-dim)';
+        html += `<tr>
+          <td class="db-name-cell">${i.table_name}</td>
+          <td style="font-size:11px;color:var(--text2)">${i.index_name}</td>
+          <td style="font-size:10px;color:var(--text3)">${i.index_type}</td>
+          <td style="color:${fragCol};font-weight:500">${fragPct}%</td>
+          <td style="font-size:11px;color:var(--text2)">${(i.page_count||0).toLocaleString()}</td>
+          <td><span style="font-size:10px;padding:2px 6px;border-radius:2px;background:${actBg};color:${actCol}">${i.recommended_action}</span></td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+    html += `</div>`;
+
+    // ── Agent Jobs ────────────────────────────────────────────────────────
+    if (s.jobs && s.jobs.length > 0) {
+      html += `<div class="section" style="margin-bottom:12px">
+        <div class="section-title">Agent Jobs <span style="font-size:10px;letter-spacing:0;color:var(--text2);text-transform:none">&nbsp;${s.jobs.length} jobs</span></div>
+        <div style="overflow-x:auto">
+        <table class="db-table"><thead><tr>
+          <th>Job Name</th><th>Enabled</th><th>Last Status</th><th>Last Run</th><th>Duration</th>
+        </tr></thead><tbody>`;
+      s.jobs.forEach(j => {
+        const statusMap = { 0:'FAILED', 1:'SUCCEEDED', 2:'RETRY', 3:'CANCELLED', 4:'RUNNING' };
+        const statusCol = { 0:'var(--red)', 1:'var(--green)', 2:'var(--amber)', 3:'var(--text3)', 4:'var(--accent)' };
+        const st  = j.run_status;
+        const lbl = statusMap[st] || '—';
+        const col = statusCol[st] || 'var(--text3)';
+        const runDate = j.run_date ? String(j.run_date).replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') : '—';
+        const runTime = j.run_time != null ? String(j.run_time).padStart(6,'0').replace(/(\d{2})(\d{2})(\d{2})/, '$1:$2:$3') : '';
+        const dur = j.run_duration != null ? j.run_duration + 's' : '—';
+        html += `<tr>
+          <td class="db-name-cell">${j.job_name}</td>
+          <td style="color:${j.enabled ? 'var(--green)' : 'var(--text3)'}">${j.enabled ? 'YES' : 'NO'}</td>
+          <td><span style="color:${col};font-size:11px">${lbl}</span></td>
+          <td style="color:var(--text2);font-size:11px">${runDate} ${runTime}</td>
+          <td style="color:var(--text3)">${dur}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div></div>';
+    }
+
+    document.getElementById('detail-content').innerHTML = html;
+
+  } catch(e) {
+    document.getElementById('detail-content').innerHTML =
+      `<div class="error-msg">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function kv(k, v) {
+  return `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v ?? '—'}</span></div>`;
+}
+function engineEdition(n) {
+  const m = { 1:'Personal',2:'Standard',3:'Enterprise',4:'Express',5:'SQL Azure',8:'Managed Instance' };
+  return m[n] || n || '—';
+}
+function windowsRelease(os) {
+  if (!os) return '—';
+  if (os.host_distribution && os.host_release) return os.host_distribution + ' ' + os.host_release;
+  if (os.host_platform && os.host_release) return os.host_platform + ' ' + os.host_release;
+  if (os.host_platform) return os.host_platform;
+  return '—';
+}
+
+function showFleet() {
+  currentDetailId = null;
+  hideAllMainViews();
+  document.getElementById('fleet-view').style.display = '';
+  document.getElementById('btn-fleet').classList.add('active');
+  document.getElementById('btn-inventory').classList.remove('active');
+  document.getElementById('btn-drivespace').classList.remove('active');
+  document.querySelectorAll('.srv-item').forEach(el => el.classList.remove('active'));
+}
+
+function showInventory() {
+  currentDetailId = null;
+  hideAllMainViews();
+  document.getElementById('inventory-section').style.display = '';
+  document.getElementById('btn-inventory').classList.add('active');
+  document.getElementById('btn-fleet').classList.remove('active');
+  document.getElementById('btn-drivespace').classList.remove('active');
+}
+
+
+function hideAllMainViews() {
+  const fleet = document.getElementById('fleet-view');
+  const detail = document.getElementById('detail-view');
+  const inventory = document.getElementById('inventory-section');
+  const drivespace = document.getElementById('drivespace-section');
+
+  if (fleet) fleet.style.display = 'none';
+  if (detail) detail.style.display = 'none';
+  if (inventory) inventory.style.display = 'none';
+  if (drivespace) drivespace.style.display = 'none';
+}
+
+// ── DRIVE SPACE ──────────────────────────────────────────────────────────────
+let dsData        = null;
+let activeDsGroup = null;
+
+function showDriveSpace() {
+  currentDetailId = null;
+  hideAllMainViews();
+  document.getElementById('drivespace-section').style.display = '';
+  document.getElementById('btn-drivespace').classList.add('active');
+  document.getElementById('btn-fleet').classList.remove('active');
+  document.getElementById('btn-inventory').classList.remove('active');
+  if (!dsData) loadDriveSpace();
+  else renderDriveSpace(dsData);
+}
+
+async function loadDriveSpace() {
+  const content = document.getElementById('drivespace-content');
+  content.innerHTML = '<div class="loading">Fetching drive space…</div>';
+  try {
+    dsData = await fetch(`${API_BASE}/drivespace`).then(r => r.json());
+    renderDriveSpace(dsData);
+  } catch(e) {
+    content.innerHTML = `<div class="error-msg">Failed to load drive space: ${e.message}</div>`;
+  }
+}
+
+function renderDriveSpace(data) {
+  const content   = document.getElementById('drivespace-content');
+  const tabsEl    = document.getElementById('ds-group-tabs');
+  const collected = document.getElementById('ds-collected');
+
+  // Build a map: group -> [ { server_label, server_name, drives[] } ]
+  // Each .env server has a group; drives are keyed by server_name from the table
+  const groupMap = {};
+
+  data.servers.forEach(srv => {
+    // Find this server's group from SERVER_CONFIGS via server_id
+    const grp = (window.SERVER_GROUPS && window.SERVER_GROUPS[srv.id]) || 'Ungrouped';
+    if (!groupMap[grp]) groupMap[grp] = {};
+
+    if (srv.status === 'error' || !srv.drives.length) return;
+
+    // Group drives by server_name (MachineName from the table)
+    srv.drives.forEach(d => {
+      const srvName = d.server_name || srv.label;
+      if (!groupMap[grp][srvName]) groupMap[grp][srvName] = [];
+      groupMap[grp][srvName].push(d);
+    });
+  });
+
+  const groups = Object.keys(groupMap).sort();
+  if (!groups.length) {
+    content.innerHTML = '<div class="loading">No drive data found in tempdb.dbo.drive_space_monitor</div>';
+    return;
+  }
+
+  // Default active group
+  if (!activeDsGroup || !groupMap[activeDsGroup]) activeDsGroup = groups[0];
+
+  // Render group tabs
+  tabsEl.innerHTML = groups.map(g => `
+    <button class="btn ds-group-tab ${g === activeDsGroup ? 'active' : ''}"
+      onclick="switchDsGroup('${g}')">
+      ${g}
+    </button>
+  `).join('');
+
+  // Update collected_at — find most recent across all drives in this group
+  const allDrives = Object.values(groupMap[activeDsGroup] || {}).flat();
+  if (allDrives.length) {
+    const latest = allDrives.map(d => d.collected_at).filter(Boolean).sort().pop();
+    collected.textContent = latest ? `· last collected ${latest}` : '';
+  }
+
+  // Render servers in active group
+  const servers = groupMap[activeDsGroup] || {};
+  const serverNames = Object.keys(servers).sort();
+
+  if (!serverNames.length) {
+    content.innerHTML = `<div style="padding:20px;color:var(--text3);font-size:12px">No drive data for this group.</div>`;
+    return;
+  }
+
+  let html = '';
+  serverNames.forEach(srvName => {
+    const drives = servers[srvName];
+    html += `
+      <div class="ds-server-block">
+        <div class="ds-server-title">
+          <span style="color:var(--text3);font-size:10px;margin-right:6px">▸</span>${srvName}
+          <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:8px">${drives.length} drive${drives.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="ds-grid">`;
+
+    drives.forEach(d => {
+      const pct     = parseFloat(d.used_pct) || 0;
+      const cls     = pct >= 90 ? 'error' : pct >= 75 ? 'warn' : 'ok';
+      const totalGb = parseFloat(d.total_gb).toFixed(1);
+      const usedGb  = parseFloat(d.used_gb).toFixed(1);
+      const freeGb  = parseFloat(d.free_gb).toFixed(1);
+      const freeCol = cls === 'error' ? 'var(--red)' : cls === 'warn' ? 'var(--amber)' : 'var(--green)';
+
+      html += `
+        <div class="ds-card ${cls}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between">
+            <div>
+              <div class="ds-drive-letter">${d.drive_letter}</div>
+              <div class="ds-drive-label">${d.drive_label || 'Volume'}</div>
+            </div>
+            <div class="ds-pct-val ${cls}">${pct}%</div>
+          </div>
+          <div class="ds-bar-track">
+            <div class="ds-bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></div>
+          </div>
+          <div class="ds-stats">
+            <div>
+              <div class="ds-stat-label">TOTAL</div>
+              <div class="ds-stat-val">${totalGb} GB</div>
+            </div>
+            <div>
+              <div class="ds-stat-label">USED</div>
+              <div class="ds-stat-val">${usedGb} GB</div>
+            </div>
+            <div>
+              <div class="ds-stat-label">FREE</div>
+              <div class="ds-stat-val" style="color:${freeCol}">${freeGb} GB</div>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  content.innerHTML = html;
+}
+
+function switchDsGroup(group) {
+  activeDsGroup = group;
+  renderDriveSpace(dsData);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+// Load server group map first, then boot the dashboard
+(async () => {
+  try {
+    const cfg = await fetch(`${API_BASE}/config`).then(r => r.json());
+    window.SERVER_GROUPS = cfg.serverGroups || {};
+  } catch(e) {
+    window.SERVER_GROUPS = {};
+  }
+  showFleet();
+  refreshFleet();
+  loadInventory();
+})();
+</script>
+</body>
+</html>
